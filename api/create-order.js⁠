@@ -1,22 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
-  const { amount } = req.body;
-  const orderCode = "WAZUE" + Math.floor(100000 + Math.random() * 900000);
+  try {
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+    const { amount } = req.body;
+    const orderCode = "WAZUE" + Math.floor(100000 + Math.random() * 900000);
 
-  // 1. Lưu đơn hàng chờ thanh toán vào Supabase Database
-  await supabase.from('orders').insert([
-    { order_code: orderCode, amount: amount, status: 'PENDING' }
-  ]);
+    const { error } = await supabase.from('orders').insert([
+      { order_code: orderCode, amount: Number(amount), status: 'PENDING' }
+    ]);
 
-  // 2. Tạo URL VietQR theo cấu hình SePay
-  const BANK_ACC = process.env.BANK_ACC;
-  const BANK_ID = process.env.BANK_ID;
-  const qrUrl = `https://qr.sepay.vn/img?bank=${BANK_ID}&acc=${BANK_ACC}&template=compact&amount=${amount}&des=${orderCode}`;
+    if (error) throw error;
 
-  res.status(200).json({ success: true, orderCode, qrUrl });
+    const BANK_ACC = process.env.BANK_ACC;
+    const BANK_ID = process.env.BANK_ID;
+    const qrUrl = `https://qr.sepay.vn/img?bank=${BANK_ID}&acc=${BANK_ACC}&template=compact&amount=${amount}&des=${orderCode}`;
+
+    return res.status(200).json({ success: true, orderCode, qrUrl });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
 }
