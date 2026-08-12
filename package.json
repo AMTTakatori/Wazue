@@ -2,6 +2,9 @@
   "name": "wazue-shop-auto",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "build": "echo 'No build step required'"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0"
   }
