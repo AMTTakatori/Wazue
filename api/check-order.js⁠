@@ -1,19 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
 export default async function handler(req, res) {
-  const { orderCode } = req.query;
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
-  const { data } = await supabase
-    .from('orders')
-    .select('status, account')
-    .eq('order_code', orderCode)
-    .single();
+  try {
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+    const { amount } = req.body;
+    const orderCode = "WAZUE" + Math.floor(100000 + Math.random() * 900000);
 
-  if (data) {
-    return res.status(200).json({ status: data.status, account: data.account });
+    const { error } = await supabase.from('orders').insert([
+      { order_code: orderCode, amount: Number(amount), status: 'PENDING' }
+    ]);
+
+    if (error) throw error;
+
+    const BANK_ACC = process.env.BANK_ACC;
+    const BANK_ID = process.env.BANK_ID;
+    const qrUrl = `https://qr.sepay.vn/img?bank=${BANK_ID}&acc=${BANK_ACC}&template=compact&amount=${amount}&des=${orderCode}`;
+
+    return res.status(200).json({ success: true, orderCode, qrUrl });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
-
-  res.status(200).json({ status: 'PENDING' });
 }
