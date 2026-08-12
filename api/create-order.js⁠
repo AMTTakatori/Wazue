@@ -1,0 +1,22 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+  const { amount } = req.body;
+  const orderCode = "WAZUE" + Math.floor(100000 + Math.random() * 900000);
+
+  // 1. Lưu đơn hàng chờ thanh toán vào Supabase Database
+  await supabase.from('orders').insert([
+    { order_code: orderCode, amount: amount, status: 'PENDING' }
+  ]);
+
+  // 2. Tạo URL VietQR theo cấu hình SePay
+  const BANK_ACC = process.env.BANK_ACC;
+  const BANK_ID = process.env.BANK_ID;
+  const qrUrl = `https://qr.sepay.vn/img?bank=${BANK_ID}&acc=${BANK_ACC}&template=compact&amount=${amount}&des=${orderCode}`;
+
+  res.status(200).json({ success: true, orderCode, qrUrl });
+}
