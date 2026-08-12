@@ -1,7 +1,7 @@
 export default function handler(req, res) {
-  res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  
+  res.setHeader('Content-Type', 'application/json');
+
   const plans = [
     { name: "Wazue 1 Ngày", amount: 7000 },
     { name: "Wazue 5 Ngày", amount: 25000 },
