@@ -62,7 +62,7 @@
       document.getElementById('plan-grid').innerHTML = plans.map(p => `
         <div class="card">
           <h3>${p.name}</h3>
-          <div class="price">${p.price.toLocaleString()}đ</div>
+          <div class="price">${p.amount.toLocaleString()}đ</div>
           <button class="btn" onclick="buyPlan(${p.amount})">Mua Ngay</button>
         </div>
       `).join('');
