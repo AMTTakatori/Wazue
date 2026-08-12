@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop Tài Khoản Wazue Tự Động</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #06080f; --card: #0d1017; --teal: #00d4aa; --border: #1e2535; --text: #dde4f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
+    h1 { margin-bottom: 8px; font-size: 28px; }
+    h1 span { color: var(--teal); }
+    .subtitle { color: #6a7a99; font-size: 14px; margin-bottom: 30px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; max-width: 1000px; width: 100%; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: 220px; text-align: center; }
+    .card h3 { font-size: 20px; margin-bottom: 10px; }
+    .price { font-size: 24px; font-weight: 800; color: var(--teal); margin-bottom: 16px; }
+    .btn { background: var(--teal); color: #000; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
+    .btn:hover { filter: brightness(1.1); }
+    
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 340px; text-align: center; }
+    .qr-img { width: 220px; border-radius: 12px; margin: 16px 0; border: 2px solid var(--border); }
+    .order-code { font-family: monospace; font-size: 18px; color: var(--teal); font-weight: bold; background: #141820; padding: 6px; border-radius: 6px; margin: 8px 0; }
+    .acc-result { background: #141820; border: 1px solid var(--teal); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 14px; color: #fff; margin-top: 12px; word-break: break-all; }
+  </style>
+</head>
+<body>
+
+  <h1>Hệ Thống Bán Tài Khoản <span>Wazue</span></h1>
+  <p class="subtitle">Kích hoạt tự động 100% qua Qling Portal sau khi thanh toán</p>
+
+  <div class="grid" id="plan-grid">Đang tải danh sách gói...</div>
+
+  <!-- Modal Thanh Toán -->
+  <div class="modal-overlay" id="payment-modal">
+    <div class="modal">
+      <h3 id="modal-title">Quét mã QR Thanh toán</h3>
+      <div id="payment-step">
+        <img id="qr-image" src="" class="qr-img" alt="QR Code">
+        <p style="font-size: 12px; color: #6a7a99;">Nội dung chuyển khoản (bắt buộc):</p>
+        <div class="order-code" id="order-code-txt"></div>
+        <p style="font-size: 11px; color: #00d4aa; margin-top: 10px;">⏳ Đang chờ hệ thống kiểm tra tiền về...</p>
+      </div>
+      <div id="success-step" style="display: none;">
+        <p style="color: #4fdb8a; font-weight: bold; font-size: 18px;">🎉 Thanh Toán Thành Công!</p>
+        <p style="font-size: 12px; color: #6a7a99; margin-top: 8px;">Tài khoản Wazue của bạn:</p>
+        <div class="acc-result" id="acc-txt"></div>
+      </div>
+      <button class="btn" style="margin-top: 18px; background: #28344a; color: #fff;" onclick="closeModal()">Đóng</button>
+    </div>
+  </div>
+
+  <script>
+    let pollInterval = null;
+
+    async function loadPlans() {
+      try {
+        const res = await fetch('/api/get-plans');
+        if (!res.ok) {
+          throw new Error('Không thể kết nối API /api/get-plans (Mã lỗi: ' + res.status + ')');
+        }
+        const plans = await res.json();
+        
+        document.getElementById('plan-grid').innerHTML = plans.map(p => `
+          <div class="card">
+            <h3>${p.name}</h3>
+            <div class="price">${p.amount.toLocaleString()}đ</div>
+            <button class="btn" onclick="buyPlan(${p.amount})">Mua Ngay</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        document.getElementById('plan-grid').innerHTML = 
+          `<p style="color: #ff4f6d; text-align: center; background: #141820; padding: 15px; border-radius: 8px;">
+            ⚠️ Lỗi: ${err.message}<br><small style="color: #6a7a99">Hãy kiểm tra file api/get-plans.js trên GitHub</small>
+           </p>`;
+      }
+    }
+
+    async function buyPlan(amount) {
+      try {
+        const res = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount })
+        });
+        const data = await res.json();
+
+        document.getElementById('qr-image').src = data.qrUrl;
+        document.getElementById('order-code-txt').innerText = data.orderCode;
+        document.getElementById('payment-step').style.display = 'block';
+        document.getElementById('success-step').style.display = 'none';
+        document.getElementById('payment-modal').style.display = 'flex';
+
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(() => checkStatus(data.orderCode), 3000);
+      } catch (err) {
+        alert('Lỗi tạo đơn hàng: ' + err.message);
+      }
+    }
+
+    async function checkStatus(orderCode) {
+      try {
+        const res = await fetch(`/api/check-order?orderCode=${orderCode}`);
+        const data = await res.json();
+        if (data.status === 'COMPLETED') {
+          clearInterval(pollInterval);
+          document.getElementById('payment-step').style.display = 'none';
+          document.getElementById('success-step').style.display = 'block';
+          document.getElementById('acc-txt').innerText = data.account;
+        }
+      } catch (e) {}
+    }
+
+    function closeModal() {
+      if (pollInterval) clearInterval(pollInterval);
+      document.getElementById('payment-modal').style.display = 'none';
+    }
+
+    loadPlans();
+  </script>
+</body>
+</html>
